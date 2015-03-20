@@ -1,0 +1,14 @@
+{application, erl_realmd,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  ranch,
+                  lager
+                 ]},
+  {mod, { erl_realmd_app, []}},
+  {env, []}
+ ]}.

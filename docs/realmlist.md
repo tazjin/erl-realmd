@@ -60,7 +60,7 @@ Which would translate into roughly
 ```haskell
 import Data.Word
 
-data RealmFlags
+-- Without extra types
 
 data Realm = Realm {
       _name :: String
@@ -75,3 +75,4 @@ data Realm = Realm {
     , _realmBuildInfo :: RealmBuildInfo
 }
 ```
+
