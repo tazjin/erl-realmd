@@ -20,8 +20,8 @@ handle_auth_challenge(Socket, Transport) ->
     end.
 
 dispatch_auth_challenge(Socket, Transport, Data) ->
-    <<1, 12, 1, Build:16/little-integer,
-      Platform:3/binary, "\0",
+    <<1, 12, 1, _Build:16/little-integer,
+      _Platform:3/binary, "\0",
       OS:3/binary, "\0",
       Country:4/binary,
       _Timezone:32/integer,
@@ -33,9 +33,9 @@ dispatch_auth_challenge(Socket, Transport, Data) ->
                 [IP, OS, Country, I]),
     % Calculate SRP6 public key
     case realmd_user:get_srp_ingredients(I) of
-        {ok, {salt, Salt}, {hash, Hash}} ->
+        {ok, {hash, Hash}} ->
             lager:debug("Found account, responding with server challenge"),
-            auth_challenge_respond_success(Transport, Socket, Hash, Salt);
+            auth_challenge_respond_success(Transport, Socket, Hash);
         {error, banned} ->
             lager:debug("Rejecting banned account ~p from ~p", [I, IP]),
             Transport:send(Socket, <<0, 0, ?ce_account_closed>>);
@@ -45,10 +45,15 @@ dispatch_auth_challenge(Socket, Transport, Data) ->
     end.
 
 %% Respond with success (user exists!)
-auth_challenge_respond_success(Transport, Socket, Hash, Salt) ->
-    PublicKey = srp6:calcPublic(srp6:calcVerifier(Hash, Salt)),
-    Prime     = srp6:getPrime(),
+auth_challenge_respond_success(Transport, Socket, Hash) ->
+    S = srp6:challenge(Hash),
     Unknown   = crypto:strong_rand_bytes(16), % This is unknown but different every time
-    Response  = <<0, 0, ?ce_success, PublicKey/binary, 1, 7, 32, Prime:32/binary,
-                 Salt:32/binary, Unknown:16/binary, 0>>,
-    Transport:send(Socket, Response).
+    Response  = <<0, 0, ?ce_success,
+                  (S#session.public):256?UINT,
+                  1, 7, 32,
+                  ?safe_prime:256?UINT,
+                  (S#session.salt):256?UINT,
+                  Unknown:16/binary, 0>>,
+    lager:debug("Responding ~p", [Response]),
+    Transport:send(Socket, Response),
+    S.
